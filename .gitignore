@@ -1,0 +1,11 @@
+node_modules/
+.test-data/
+.web-workbench/
+*.tgz
+.install-results/
+.pnpm-store/
+.env
+.env.local
+auth-state.json
+browser-profile/
+*.log
