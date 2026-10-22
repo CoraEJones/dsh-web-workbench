@@ -130,7 +130,7 @@ test('Host registration uses native JSON schemas and removable resources', () =>
   apply({tools:{register:t=>registered.push(t),get:()=>true},systemPrompt:{section:s=>sections.push(s)},on:(name,fn)=>listeners.push([name,fn])},{dataDir:root});
   assert.equal(registered.length,13); assert.equal(listeners[0][0],'dispose'); assert.match(sections[0].text({}),/untrusted/);
   for (const tool of registered) { assert.equal(tool.parameters.additionalProperties,false); assert.equal(tool.output.render({},{} )[0].type,'text'); }
-  assert.equal(Config.parse({}).headless,false);
+  assert.equal(Config.parse({}).headless,true);
 });
 test('video metadata and frame extraction using a generated local clip', async () => {
   const {directory}=await call('web_workbench_status'); const file=path.join(directory,'sample.mp4');

@@ -2,7 +2,7 @@
 
 面向 **DeepSeek Harness Desktop 0.2.1-rc.2** 的原生 Cordis 插件。注册 13 个工具，使用现有 Harness 工具调度、会话日志和系统提示词接口。原有 `web_search` 和 `web_fetch` 保持可用。
 
-**0.1.1 已在正在运行的 DSH Desktop 中安装并通过实际调用验证**：状态查询、浏览器打开、填表、点击、截图和离线 OCR 均成功；测试机器通过热加载生效，无需重启或新开会话。[验证范围](docs/verification.md)。
+**0.2.0 增加 DSH 右侧栏共享浏览器与人工接管**。工具和侧栏使用同一个 Playwright 浏览器实例、标签页与登录状态。[验证范围](docs/verification.md)。
 
 ## 已补充的能力
 
@@ -10,7 +10,8 @@
 | --- | --- |
 | 打开需要 JavaScript 的网站 | 真实 Edge/Chromium，返回渲染后的文字、元素和标签页 |
 | 点击、翻页、输入、选择、提交表单 | 使用最近一次快照中的元素 `ref`；交互后返回新快照 |
-| 登录网站 | 独立浏览器窗口，支持人工登录、人工验证码/MFA，登录状态保留在本机 |
+| 看见并接管 AI 操作 | 右侧栏“AI 浏览器”显示同一浏览器的实时画面；接管后可点击、滚动、键盘输入和粘贴，AI 浏览器工具暂停 |
+| 登录网站 | 在侧栏接管后人工登录、处理验证码/MFA，独立浏览器 profile 与 Cookie 保留在本机 |
 | 上传、下载 | 上传已暂存的文件；保存点击产生的下载；直接下载支持当前浏览器的站点 Cookie |
 | 读取 PDF 全文 | 下载后二进制解析，按页提取，支持页码和文字分页；扫描页可 OCR |
 | 阅读图片文字 | 内置英文和简体中文 OCR 语言文件，运行时无需联网下载 |
@@ -32,11 +33,11 @@ cd dsh-web-workbench
 .\Install.cmd
 ```
 
-安装器使用 DSH 官方 `dsh plugin --profile desktop add <目录> --ignore-scripts`，由 DSH 管理配置锁、版本检查和 bundle 选择；会先备份配置，并将结果写入 `.install-results/install-result.json`。它不手工覆盖 profile 配置，不修改全局权限，不需要管理员账号。
+安装器使用 DSH 自带运行时打包，再调用官方 `dsh plugin --profile desktop add <压缩包> --ignore-scripts`，同时安装插件依赖；会先备份配置，并将结果写入 `.install-results/install-result.json`。它不手工覆盖 profile 配置，不修改全局权限，不需要管理员账号。Windows 执行策略只对此安装子进程生效。
 
 **请从普通终端或文件资源管理器运行安装器。** 在 DSH 的“工作区内修改”命令工具中运行，仍会受该聊天的沙箱限制，不能因此获得 profile 写权限。
 
-默认使用已安装的 Edge，无需下载 Chromium。本插件及依赖不需要运行安装构建脚本。安装后保留源码目录，DSH 可能将依赖链接到该目录。
+默认使用已安装的 Edge，无需下载 Chromium，浏览器画面显示在 DSH 侧栏。默认安装压缩包而不是源码软链，因此干净克隆也能装齐依赖。保留 `.install-results` 中的安装压缩包，以便 pnpm 后续重装。开发时可给安装脚本加 `-DeveloperLink`，该模式需要先在源码目录安装依赖并保留源码目录。
 
 ### 使用 Harness 自带的管理入口
 
@@ -58,6 +59,18 @@ cd dsh-web-workbench
 让 DSH 实际调用 `web_workbench_status`，再打开一个测试网页。**依赖安装成功不等于已经激活。** HMR 开启时，新增工具可以在当前运行实例动态生效；仅在 DSH 报告 `restart-required` 或热加载失败时重启，不必一律新开聊天。
 
 可选的 `verifyOnLoad:true` 会在插件加载时，通过当前 Host 的真实工具调度器运行本机网页与 OCR 自检，输出到 `dataDir/diagnostics/live-host.json`。默认关闭；测试时建议同时设置 `headless:true`，测试完成后恢复设置。自检不调用 LLM，也不访问外部网站。
+
+首次从 0.1.x 升级时，DSH 可能缓存了旧版本不含客户端界面的声明。若工具已出现而“AI 浏览器”入口没有出现，保存工作后重启 DSH。桌面端界面热更新连接失败时，也需要刷新页面或重启；工具加载成功不能证明客户端界面已加载。
+
+## 在右侧栏观看和接管
+
+在会话输入框附近点击“打开 AI 浏览器”，或在右侧栏新增页面中选择“AI 浏览器”。AI 第一次打开网页时，当前会话的侧栏也会自动展开。原有 DSH“浏览器”页仍可使用；共享 AI 浏览器使用单独的“AI 浏览器”页。
+
+点击“接管浏览器”后，新的 AI 浏览器操作会返回 `HUMAN_CONTROL`。已经开始的操作会先结束，手动输入排在它之后，避免双方同时点击。直接点击网页画面，然后输入、粘贴或滚动；中文输入也可使用底部输入栏。点击“交还给 AI”后，AI 需要重新获取快照才能继续。关闭或收起侧栏不会自动交还控制权。
+
+“选择文件”将本机文件放入当前会话暂存区，供 AI 使用。接管后点击网页的上传按钮，再选择文件，会上传到同一个浏览器；也可使用“上传到当前网页”。网页下载会列在“下载文件”中，可另存到本机，AI 仍能读取同一份暂存文件。
+
+画面采用 JPEG 视口刷新，正常约每 350 毫秒一帧（实际取决于网页和主机性能），不是高帧率视频流。侧栏隐藏时停止取帧。网站的原生选择菜单可用键盘操作；复杂拖拽、音视频实时播放和浏览器扩展界面不在本版交互范围内。
 
 ## 使用示例
 
@@ -104,7 +117,7 @@ cd dsh-web-workbench
 | 配置 | 默认值 |
 | --- | --- |
 | `dataDir` | 用户目录下 `.dsh/web-workbench` |
-| `headless` | `false`，显示浏览器以便人工登录 |
+| `headless` | `true`，后台运行并在 DSH 侧栏显示同一浏览器；`false` 可额外显示独立窗口 |
 | `browserChannel` | `msedge`，也可用 `chrome`；空字符串使用 Playwright Chromium |
 | `timeoutMs` | 30000 |
 | `maxFileBytes` | 100 MiB |
@@ -129,7 +142,7 @@ pnpm test
 pnpm pack
 ```
 
-14 项本地测试全部通过。测试使用本地 HTTP 网站和隐藏的独立测试浏览器，覆盖真实 JavaScript 渲染、表单提交、文件上传、点击下载、浏览器弹窗、标签页、登录恢复、带 Cookie 下载、PDF 解析/渲染、扫描 PDF OCR、英文/中文 OCR、视频信息和取帧、越界路径、流式大小限制及取消清理。没有对真实账号执行写操作，没有调用收费模型接口。当前测试需要 Edge、FFmpeg 和 Microsoft YaHei 中文字体。
+16 项本地测试通过，包括同一浏览器的 AI/人工联动、接管时拦截排队操作、中文输入、侧栏上传下载、重开登录恢复，以及原有 PDF/OCR/视频与文件边界检查。测试使用本机 HTTP 页面。当前测试需要 Edge、FFmpeg 和 Microsoft YaHei 中文字体。
 
 另外，`test/native-host.integration.mjs` 可在安装的 DSH Electron 运行时中测试真实 Cordis、SystemPrompt、ToolRuntime 注册与调用。已经完成独立原生运行时验证和正在运行的 Desktop Host 验证。Harness 仍在迭代，其他版本尚未验证。
 

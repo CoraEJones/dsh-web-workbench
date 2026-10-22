@@ -1,12 +1,14 @@
 [CmdletBinding()]
 param(
     [string]$Profile = 'desktop',
-    [string]$Source = (Split-Path -Parent $PSScriptRoot),
+    [string]$Source,
     [string]$DshCommand,
     [string]$ReportDirectory,
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$DeveloperLink
 )
 $ErrorActionPreference = 'Stop'
+if (-not $Source) { $Source = Split-Path -Parent $PSScriptRoot }
 if ($Profile -notmatch '^[a-zA-Z0-9_-]+$') { throw 'Invalid profile name.' }
 $packageRoot = (Resolve-Path -LiteralPath $Source).Path
 $manifest = Get-Content -LiteralPath (Join-Path $packageRoot 'package.json') -Raw | ConvertFrom-Json
@@ -52,9 +54,50 @@ foreach ($name in @('package.json','pnpm-lock.yaml','cordis.patch.yml','pnpm-wor
 }
 $report.backup = $backupDirectory
 try {
+    $installTarget = $packageRoot
+    if (-not $DeveloperLink) {
+        # Install a tarball so pnpm also installs this package's dependencies.
+        # A link: directory alone does not provision a fresh clone's dependencies.
+        $resources = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $DshCommand) '..\..\..'))
+        $electron = Join-Path $resources '..\DeepSeek Harness.exe'
+        $pnpm = Join-Path $resources 'runtime\primary-runtime\dependencies\pnpm\bin\pnpm.mjs'
+        if (-not (Test-Path -LiteralPath $electron) -or -not (Test-Path -LiteralPath $pnpm)) {
+            throw 'Bundled DSH package runtime was not found. Provide the installed Desktop dsh.cmd path.'
+        }
+        $archiveDirectory = Join-Path $packageRoot '.install-results'
+        New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
+        $installTarget = Join-Path $archiveDirectory ("dsh-web-workbench-$($manifest.version)-$stamp.tgz")
+        $priorElectronMode = $env:ELECTRON_RUN_AS_NODE
+        try {
+            $env:ELECTRON_RUN_AS_NODE = '1'
+            & $electron $pnpm --dir $packageRoot pack --out $installTarget
+            if ($LASTEXITCODE -ne 0) { throw 'Could not package the plugin.' }
+        } finally { $env:ELECTRON_RUN_AS_NODE = $priorElectronMode }
+        $report.archive = $installTarget
+    }
+    $oldDependency = $before.dependencies.PSObject.Properties[$manifest.name]
+    $moduleEntry = Get-Item -LiteralPath (Join-Path $profileRoot ('node_modules\' + $manifest.name)) -ErrorAction SilentlyContinue
+    $oldSourceLink = $false
+    if ($moduleEntry -and $moduleEntry.LinkType) {
+        foreach ($linkTarget in @($moduleEntry.Target)) {
+            if ([IO.Path]::GetFullPath($linkTarget).TrimEnd('\') -eq $packageRoot.TrimEnd('\')) { $oldSourceLink = $true }
+        }
+    }
+    if (-not $DeveloperLink -and (($oldDependency -and $oldDependency.Value -like 'link:*') -or $oldSourceLink)) {
+        # Remove only the verified reparse point first. pnpm's pruning must
+        # never follow an old Windows junction into the developer's source.
+        if ($moduleEntry -and $moduleEntry.LinkType -in @('Junction','SymbolicLink')) {
+            $entryPath = [IO.Path]::GetFullPath($moduleEntry.FullName)
+            $expectedPath = [IO.Path]::GetFullPath((Join-Path $profileRoot ('node_modules\' + $manifest.name)))
+            if ($entryPath -ne $expectedPath) { throw 'Unexpected plugin link path; no link removed.' }
+            [IO.Directory]::Delete($entryPath)
+        }
+        & $DshCommand plugin --profile $Profile remove $manifest.name --config.ignore-scripts=true
+        if ($LASTEXITCODE -ne 0) { throw 'Could not remove the old development link.' }
+    }
     # DSH's supported CLI owns package installation, locking, compatibility
     # admission and selection of newly added bundles. Do not rewrite its manifest.
-    & $DshCommand plugin --profile $Profile add $packageRoot --ignore-scripts
+    & $DshCommand plugin --profile $Profile add $installTarget --ignore-scripts
     if ($LASTEXITCODE -ne 0) { throw "DSH plugin installation returned exit code $LASTEXITCODE. Backups: $backupDirectory" }
     $after = Get-Content -LiteralPath $profileManifest -Raw | ConvertFrom-Json
     $dependency = $after.dependencies.PSObject.Properties[$manifest.name]

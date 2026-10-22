@@ -1,11 +1,24 @@
 {
   "name": "dsh-web-workbench",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Browser interaction, authenticated downloads, PDF text, OCR and video frames for DeepSeek Harness.",
-  "repository": { "type": "git", "url": "git+https://github.com/CoraEJones/dsh-web-workbench.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CoraEJones/dsh-web-workbench.git"
+  },
   "homepage": "https://github.com/CoraEJones/dsh-web-workbench#readme",
-  "bugs": { "url": "https://github.com/CoraEJones/dsh-web-workbench/issues" },
-  "keywords": ["deepseek-harness", "dsh-plugin", "cordis", "playwright", "browser-automation", "pdf", "ocr"],
+  "bugs": {
+    "url": "https://github.com/CoraEJones/dsh-web-workbench/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "cordis",
+    "playwright",
+    "browser-automation",
+    "pdf",
+    "ocr"
+  ],
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -14,11 +27,13 @@
   },
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
   "files": [
     "index.js",
+    "client.js",
     "lib",
     "locale",
     "icon.svg",
@@ -33,12 +48,15 @@
     "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
     }
-  },
-  "scripts": {
-    "install:dsh": "powershell.exe -NoProfile -File scripts/install-windows.ps1",
-    "test": "node --test test/*.test.js",
-    "check": "node --check index.js && node --test test/*.test.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.80",
@@ -48,5 +66,10 @@
     "playwright": "^1.55.0",
     "tesseract.js": "^6.0.1",
     "zod": "^4.1.0"
+  },
+  "scripts": {
+    "install:dsh": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
+    "test": "node --test test/*.test.js",
+    "check": "node --check index.js && node --check client.js && node --test test/*.test.js"
   }
 }
