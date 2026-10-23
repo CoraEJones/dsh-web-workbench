@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-workbench",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Browser interaction, authenticated downloads, PDF text, OCR and video frames for DeepSeek Harness.",
   "repository": {
     "type": "git",
@@ -70,6 +70,7 @@
   "scripts": {
     "install:dsh": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1",
     "test": "node --test test/*.test.js",
+    "test:client": "node --test test/client.integration.mjs",
     "check": "node --check index.js && node --check client.js && node --test test/*.test.js"
   }
 }

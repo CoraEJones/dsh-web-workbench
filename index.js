@@ -55,7 +55,7 @@ export function makeTools(config, onDispose = () => {}, workbench) {
   }
   tool('web_workbench_status', 'Get browser/document capabilities and this session\'s file staging directory. Copy local files into this directory before reading or uploading.', {},
     async (session) => ({ directory: session.files.root, browser_running: !!session.browser.context, control_owner: session.owner, sidebar: 'workbench-browser', browser_channel: config.browserChannel || 'chromium',
-      capabilities: ['sidebar_shared_browser','human_takeover','javascript_browser','click_fill_submit','persistent_signin','upload_download','pdf_text','pdf_render','image_ocr','video_metadata','video_frames'],
+      capabilities: ['sidebar_shared_browser','human_takeover','manual_pointer_drag','cursor_caret_feedback','javascript_browser','click_fill_submit','persistent_signin','upload_download','pdf_text','pdf_render','image_ocr','video_metadata','video_frames'],
       limits: { max_file_bytes: config.maxFileBytes, max_text_chars: config.maxTextChars },
       human_required: ['CAPTCHA','MFA','subscription/payment entitlement'],
       note: 'No CAPTCHA/paywall bypass; image OCR is not image semantics. No speech transcription. External site success depends on that site.' }));
