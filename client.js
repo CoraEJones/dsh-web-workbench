@@ -366,9 +366,9 @@ window.__ModuleLoader__.load({
             }
             void poll(); return () => { abort.abort(); clearTimeout(timer); };
           }, [sessionId]);
-          return h('button', { type: 'button', title: t('guide'), onClick: () => ctx.sidebarRight.openTab(kind),
-            style: { font: 'inherit', color: 'var(--dsw-alias-label-secondary)', background: 'var(--dsw-alias-bg-base)', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' },
-          }, t('open'));
+          // The pane still opens by itself the first time AI browses in this
+          // session; no composer button is rendered for it.
+          return null;
         }
         ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({ name: 'conversation.composer.dock', id: ID, order: 20 }, Watcher));
       },
